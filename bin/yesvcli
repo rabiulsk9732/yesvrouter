@@ -1,0 +1,591 @@
+#!/bin/bash
+#
+# YesVRouter CLI Engine - yesvcli
+# Advanced Virtual BNG & Router Platform Command Line Interface
+#
+# This script provides a user-friendly interface to the YesVRouter platform
+# with enhanced features like tab completion, command history, and help system.
+
+set -euo pipefail
+
+# YesVRouter CLI Configuration
+YESVROUTER_HOME="${YESVROUTER_HOME:-/root/yesvrouter}"
+YESVROUTER_BUILD_ROOT="${YESVROUTER_BUILD_ROOT:-${YESVROUTER_HOME}/build-root}"
+YESVROUTER_INSTALL_DIR="${YESVROUTER_INSTALL_DIR:-${YESVROUTER_BUILD_ROOT}/install-vpp_debug-native}"
+YESVROUTER_BIN="${YESVROUTER_INSTALL_DIR}/vpp/bin/vpp"
+YESVROUTER_CLI_SOCK="${YESVROUTER_CLI_SOCK:-/run/yesvrouter/cli.sock}"
+YESVROUTER_CONFIG_DIR="${YESVROUTER_CONFIG_DIR:-/etc/yesvrouter}"
+YESVROUTER_LOG_DIR="${YESVROUTER_LOG_DIR:-/var/log/yesvrouter}"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Helper functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_header() {
+    echo -e "${PURPLE}$1${NC}"
+}
+
+# Check if YesVRouter is running
+is_yesvrouter_running() {
+    # Check for VPP process with our specific binary path
+    if pgrep -f "$YESVROUTER_BIN" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if CLI socket exists
+check_cli_socket() {
+    if [[ -S "$YESVROUTER_CLI_SOCK" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Display YesVRouter banner
+show_banner() {
+    log_header "    _     _            __     _____             _              "
+    log_header "   | |   | |           \\ \\   / /___  __   ___ | |_ ___ _ __   "
+    log_header "   | |___| | ___  ___   \\ \\_/ // _ \\ \\\\ \\ / / || __/ _ \\ '__|  "
+    log_header "   |_____|_|/___\\/___/   \\___/ \\___/  \\_V_/  |_|\\___/\\_|     "
+    echo ""
+    log_header "   YesVRouter - Advanced Virtual BNG & Router Platform        "
+    echo ""
+    echo "   Version: 1.0.0"
+    echo "   Build: $(date +'%Y-%m-%d')"
+    echo "   Docs: See FINAL_TASK_LIST.md and CLIGUIDE.md"
+    echo ""
+}
+
+# Show help
+show_help() {
+    log_header "YesVRouter CLI (yesvcli) - Usage Guide"
+    echo ""
+    echo "USAGE:"
+    echo "  yesvcli [command] [options]"
+    echo ""
+    echo "COMMANDS:"
+    echo "  start         Start YesVRouter daemon"
+    echo "  stop          Stop YesVRouter daemon"
+    echo "  restart       Restart YesVRouter daemon"
+    echo "  status        Show YesVRouter status"
+    echo "  interactive   Start interactive CLI session"
+    echo "  exec <cmd>    Execute a single CLI command"
+    echo "  config        Configuration management"
+    echo "  logs          View YesVRouter logs"
+    echo "  build         Build YesVRouter"
+    echo "  test          Run tests"
+    echo "  help          Show this help message"
+    echo ""
+    echo "INTERACTIVE COMMANDS:"
+    echo "  Once in interactive mode, you can use:"
+    echo "  - Tab completion for commands"
+    echo "  - 'help' or '?' for command help"
+    echo "  - 'quit' or 'exit' to leave"
+    echo "  - Arrow keys for command history"
+    echo ""
+    echo "SIMPLIFIED COMMANDS (YesVRouter extensions):"
+    echo "  set interface <name> up/down     # Enable/disable interface"
+    echo "  set interface <name> ip <cidr>   # Set IP address"
+    echo "  show interface | show int        # Show interface status"
+    echo "  show route | show routes         # Show routing table"
+    echo "  show arp                         # Show ARP table"
+    echo "  ping <ip>                        # Ping destination"
+    echo "  ip route <network> via <gateway> # Add static route"
+    echo "  ip route default via <gateway>   # Set default route"
+    echo ""
+    echo "EXAMPLES:"
+    echo "  yesvcli start                    # Start YesVRouter"
+    echo "  yesvcli interactive              # Enter interactive CLI"
+    echo "  yesvcli exec 'show interface'    # Show interfaces"
+    echo "  yesvcli exec 'set interface GigabitEthernet0/13/0 up'"
+    echo "  yesvcli exec 'set interface GigabitEthernet0/13/0 ip 103.156.200.4/29'"
+    echo "  yesvcli exec 'ping 8.8.8.8'      # Test connectivity"
+    echo "  yesvcli status                   # Check status"
+    echo ""
+    echo "For detailed documentation, see:"
+    echo "  - CLIGUIDE.md for CLI commands"
+    echo "  - FINAL_TASK_LIST.md for project roadmap"
+    echo ""
+}
+
+# Show status
+show_status() {
+    log_header "YesVRouter System Status"
+    echo "=========================="
+    
+    if is_yesvrouter_running; then
+        log_success "YesVRouter is RUNNING"
+        # Get the actual VPP PID
+        local vpp_pid=$(pgrep -f "$YESVROUTER_BIN")
+        if [[ -n "$vpp_pid" ]]; then
+            echo "PID: $vpp_pid"
+        fi
+    else
+        log_warning "YesVRouter is STOPPED"
+    fi
+    
+    echo "Home Directory: $YESVROUTER_HOME"
+    echo "Binary: $YESVROUTER_BIN"
+    echo "CLI Socket: $YESVROUTER_CLI_SOCK"
+    echo "Config Directory: $YESVROUTER_CONFIG_DIR"
+    echo "Log Directory: $YESVROUTER_LOG_DIR"
+    
+    if check_cli_socket; then
+        log_success "CLI Socket is available"
+    else
+        log_warning "CLI Socket not available"
+    fi
+    
+    # System resources
+    echo ""
+    log_header "System Resources"
+    echo "CPU Cores: $(nproc)"
+    echo "Memory: $(free -h | grep 'Mem:' | awk '{print $2}')"
+    echo "Hugepages: $(cat /proc/meminfo | grep HugePages_Total | awk '{print $2}')"
+    echo "OS: $(lsb_release -d | cut -f2)"
+}
+
+# Validate VPP configuration for common issues
+validate_config() {
+    local config_file="$1"
+    local issues_found=false
+    
+    if [[ ! -f "$config_file" ]]; then
+        log_error "Configuration file not found: $config_file"
+        return 1
+    fi
+    
+    # Check for nodaemon which causes terminal crashes
+    if grep -q "nodaemon" "$config_file"; then
+        log_warning "Found 'nodaemon' in config - this will cause terminal crashes"
+        issues_found=true
+    fi
+    
+    # Check for proper CLI socket path
+    if ! grep -q "cli-listen /run/yesvrouter/cli.sock" "$config_file"; then
+        log_warning "CLI socket path may not be configured correctly"
+        issues_found=true
+    fi
+    
+    if $issues_found; then
+        log_info "Configuration issues detected - will be auto-fixed on startup"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Start YesVRouter
+start_yesvrouter() {
+    log_info "Starting YesVRouter..."
+    
+    if is_yesvrouter_running; then
+        log_warning "YesVRouter is already running"
+        return 0
+    fi
+    
+    # Ensure directories exist
+    sudo mkdir -p "$YESVROUTER_CONFIG_DIR" "$YESVROUTER_LOG_DIR" /run/yesvrouter
+    
+    # Check if binary exists
+    if [[ ! -f "$YESVROUTER_BIN" ]]; then
+        log_error "YesVRouter binary not found: $YESVROUTER_BIN"
+        log_info "Run 'yesvcli build' to build YesVRouter first"
+        return 1
+    fi
+    
+    # Copy config to system location if needed
+    if [[ ! -f "${YESVROUTER_CONFIG_DIR}/startup.conf" ]] || ! grep -q "cli-prompt yesvrouter#" "${YESVROUTER_CONFIG_DIR}/startup.conf"; then
+        if [[ -f "${YESVROUTER_HOME}/etc/yesvrouter/startup.conf" ]]; then
+            log_info "Updating system configuration..."
+            sudo cp "${YESVROUTER_HOME}/etc/yesvrouter/startup.conf" "${YESVROUTER_CONFIG_DIR}/startup.conf"
+        fi
+    fi
+    
+    # CRITICAL FIX: Remove nodaemon from config to prevent terminal crashes
+    if grep -q "nodaemon" "${YESVROUTER_CONFIG_DIR}/startup.conf" 2>/dev/null; then
+        log_info "Fixing nodaemon configuration to prevent terminal crashes..."
+        sudo sed -i '/nodaemon/d' "${YESVROUTER_CONFIG_DIR}/startup.conf"
+    fi
+    
+    # Validate configuration
+    validate_config "${YESVROUTER_CONFIG_DIR}/startup.conf"
+    
+    # Start YesVRouter as daemon
+    log_info "Starting YesVRouter daemon..."
+    
+    # Clear any stale socket
+    sudo rm -f "$YESVROUTER_CLI_SOCK" 2>/dev/null || true
+    
+    # Start VPP with proper daemonization
+    # Use background process with proper redirection
+    sudo nohup "$YESVROUTER_BIN" -c "${YESVROUTER_CONFIG_DIR}/startup.conf" >/dev/null 2>&1 &
+    
+    # Get the actual VPP PID (nohup creates a wrapper)
+    sleep 2
+    
+    # Store the PID for monitoring
+    VPP_PID=$!
+    
+    # Wait for startup and CLI socket with better validation
+    local count=0
+    while [ $count -lt 20 ]; do
+        if is_yesvrouter_running && check_cli_socket; then
+            # Test if CLI is actually responsive
+            if timeout 3s echo "show version" | sudo socat - UNIX-CONNECT:"$YESVROUTER_CLI_SOCK" >/dev/null 2>&1; then
+                break
+            fi
+        fi
+        sleep 1
+        ((count++))
+    done
+    
+    if is_yesvrouter_running && check_cli_socket; then
+        # Final validation that CLI is working
+        if timeout 3s echo "show version" | sudo socat - UNIX-CONNECT:"$YESVROUTER_CLI_SOCK" >/dev/null 2>&1; then
+            log_success "YesVRouter started successfully"
+            log_info "Use 'yesvcli interactive' to connect to CLI"
+        else
+            log_error "YesVRouter started but CLI is not responsive"
+            return 1
+        fi
+    else
+        log_error "Failed to start YesVRouter or CLI socket not available"
+        log_info "Check logs: tail -f /var/log/yesvrouter/yesvrouter.log"
+        return 1
+    fi
+}
+
+# Stop YesVRouter
+stop_yesvrouter() {
+    log_info "Stopping YesVRouter..."
+    
+    if ! is_yesvrouter_running; then
+        log_warning "YesVRouter is not running"
+        return 0
+    fi
+    
+    # Get the PID using our specific binary path
+    local vpp_pids=$(pgrep -f "$YESVROUTER_BIN")
+    
+    if [[ -n "$vpp_pids" ]]; then
+        log_info "Stopping YesVRouter processes: $vpp_pids"
+        
+        # Graceful shutdown first
+        for pid in $vpp_pids; do
+            sudo kill -TERM $pid 2>/dev/null || true
+        done
+        
+        # Wait for graceful shutdown
+        sleep 3
+        
+        # Check if still running and force kill if needed
+        if is_yesvrouter_running; then
+            log_warning "Force killing YesVRouter..."
+            for pid in $vpp_pids; do
+                sudo kill -KILL $pid 2>/dev/null || true
+            done
+            sleep 1
+        fi
+    fi
+    
+    # Remove stale socket files
+    sudo rm -f "$YESVROUTER_CLI_SOCK" 2>/dev/null || true
+    
+    if ! is_yesvrouter_running; then
+        log_success "YesVRouter stopped successfully"
+    else
+        log_error "Failed to stop YesVRouter completely"
+        return 1
+    fi
+}
+
+# Simplified command parser for YesVRouter
+parse_simplified_command() {
+    local input="$1"
+    local simplified_cmd=""
+    
+    # Interface commands
+    if [[ "$input" =~ ^set\ interface\ ([a-zA-Z0-9/]+)\ (up|down)$ ]]; then
+        local interface="${BASH_REMATCH[1]}"
+        local state="${BASH_REMATCH[2]}"
+        simplified_cmd="set interface state $interface $state"
+    
+    # IP address commands
+    elif [[ "$input" =~ ^set\ interface\ ([a-zA-Z0-9/]+)\ ip\ ([0-9.]+/[0-9]+)$ ]]; then
+        local interface="${BASH_REMATCH[1]}"
+        local ip="${BASH_REMATCH[2]}"
+        simplified_cmd="set interface ip address $interface $ip"
+    
+    # Show commands (simplified)
+    elif [[ "$input" =~ ^show\ (interface|int)$ ]]; then
+        simplified_cmd="show interface"
+    
+    elif [[ "$input" =~ ^show\ (route|routes)$ ]]; then
+        simplified_cmd="show ip fib"
+    
+    elif [[ "$input" =~ ^show\ (arp)$ ]]; then
+        simplified_cmd="show ip neighbors"
+    
+    # Ping command
+    elif [[ "$input" =~ ^ping\ ([0-9.]+)$ ]]; then
+        local target="${BASH_REMATCH[1]}"
+        simplified_cmd="ping $target"
+    
+    # Route commands
+    elif [[ "$input" =~ ^ip\ route\ ([0-9.]+/[0-9]+)\ via\ ([0-9.]+)$ ]]; then
+        local network="${BASH_REMATCH[1]}"
+        local gateway="${BASH_REMATCH[2]}"
+        simplified_cmd="ip route add $network via $gateway"
+    
+    elif [[ "$input" =~ ^ip\ route\ ([0-9.]+/[0-9]+)\ via\ ([0-9.]+)\ ([a-zA-Z0-9/]+)$ ]]; then
+        local network="${BASH_REMATCH[1]}"
+        local gateway="${BASH_REMATCH[2]}"
+        local interface="${BASH_REMATCH[3]}"
+        simplified_cmd="ip route add $network via $gateway $interface"
+    
+    # Default route
+    elif [[ "$input" =~ ^ip\ route\ default\ via\ ([0-9.]+)$ ]]; then
+        local gateway="${BASH_REMATCH[1]}"
+        simplified_cmd="ip route add 0.0.0.0/0 via $gateway"
+    
+    else
+        # Pass through unmodified if not a simplified command
+        simplified_cmd="$input"
+    fi
+    
+    echo "$simplified_cmd"
+}
+
+# Execute a single CLI command
+execute_cli_command() {
+    local command="$1"
+    
+    if ! is_yesvrouter_running; then
+        log_error "YesVRouter is not running"
+        log_info "Start YesVRouter first with: yesvcli start"
+        return 1
+    fi
+    
+    if ! check_cli_socket; then
+        log_error "CLI socket not available: $YESVROUTER_CLI_SOCK"
+        return 1
+    fi
+    
+    # Parse simplified commands
+    local parsed_command=$(parse_simplified_command "$command")
+    
+    # Execute command using VPP's native vppctl
+    "${YESVROUTER_HOME}/bin/yesvctl" "$parsed_command"
+}
+
+# Interactive CLI session
+interactive_cli() {
+    show_banner
+    
+    if ! is_yesvrouter_running; then
+        log_error "YesVRouter is not running"
+        log_info "Start YesVRouter first with: yesvcli start"
+        return 1
+    fi
+    
+    if ! check_cli_socket; then
+        log_error "CLI socket not available: $YESVROUTER_CLI_SOCK"
+        return 1
+    fi
+    
+    log_success "Connecting to YesVRouter CLI..."
+    log_info "Type 'help' for commands, 'quit' to exit"
+    echo ""
+    
+    # Use yesvctl directly without exec to maintain session
+    "${YESVROUTER_HOME}/bin/yesvctl"
+    
+    # If yesvctl exits, return to shell gracefully
+    echo ""
+    log_info "CLI session ended"
+}
+
+# Build YesVRouter
+build_yesvrouter() {
+    log_info "Building YesVRouter..."
+    
+    cd "$YESVROUTER_HOME"
+    
+    if [[ ! -f "Makefile.yesvrouter" ]]; then
+        log_error "YesVRouter Makefile not found"
+        return 1
+    fi
+    
+    make -f Makefile.yesvrouter yesvrouter-build
+    
+    if [[ $? -eq 0 ]]; then
+        log_success "YesVRouter build completed successfully"
+    else
+        log_error "YesVRouter build failed"
+        return 1
+    fi
+}
+
+# View logs
+view_logs() {
+    local log_file="${YESVROUTER_LOG_DIR}/yesvrouter.log"
+    
+    if [[ -f "$log_file" ]]; then
+        log_info "Viewing YesVRouter logs (Press Ctrl+C to exit)"
+        tail -f "$log_file"
+    else
+        log_warning "Log file not found: $log_file"
+        log_info "YesVRouter may not be running or logging to a different location"
+    fi
+}
+
+# Configuration management
+config_management() {
+    local action="$1"
+    
+    case "$action" in
+        "show")
+            echo "Configuration Status:"
+            echo "====================="
+            if [[ -f "${YESVROUTER_CONFIG_DIR}/startup.conf" ]]; then
+                echo "System Config: ${YESVROUTER_CONFIG_DIR}/startup.conf"
+                validate_config "${YESVROUTER_CONFIG_DIR}/startup.conf"
+                if [[ $? -eq 0 ]]; then
+                    log_success "Configuration is valid"
+                else
+                    log_warning "Configuration has issues (auto-fixed on startup)"
+                fi
+                echo ""
+                echo "Configuration preview:"
+                echo "----------------------"
+                head -20 "${YESVROUTER_CONFIG_DIR}/startup.conf"
+            else
+                log_warning "System configuration file not found"
+                log_info "Using default configuration from: ${YESVROUTER_HOME}/etc/yesvrouter/startup.conf"
+            fi
+            echo ""
+            echo "Project Config: ${YESVROUTER_HOME}/etc/yesvrouter/startup.conf"
+            if [[ -f "${YESVROUTER_HOME}/etc/yesvrouter/startup.conf" ]]; then
+                validate_config "${YESVROUTER_HOME}/etc/yesvrouter/startup.conf"
+                if [[ $? -eq 0 ]]; then
+                    log_success "Project configuration is valid"
+                fi
+            else
+                log_error "No project configuration found"
+            fi
+            ;;
+        "validate")
+            log_info "Validating YesVRouter configuration..."
+            validate_config "${YESVROUTER_CONFIG_DIR}/startup.conf"
+            if [[ $? -eq 0 ]]; then
+                log_success "Configuration is valid"
+            else
+                log_warning "Configuration validation failed"
+            fi
+            ;;
+        "view")
+            log_info "YesVRouter Configuration"
+            if [[ -f "${YESVROUTER_CONFIG_DIR}/startup.conf" ]]; then
+                cat "${YESVROUTER_CONFIG_DIR}/startup.conf"
+            else
+                log_warning "Configuration file not found"
+                log_info "Using default configuration from: ${YESVROUTER_HOME}/etc/yesvrouter/startup.conf"
+            fi
+            ;;
+        "edit")
+            log_info "Opening configuration for editing..."
+            sudo "${EDITOR:-nano}" "${YESVROUTER_CONFIG_DIR}/startup.conf"
+            ;;
+        *)
+            log_error "Unknown config action: $action"
+            echo "Usage: yesvcli config [show|validate|view|edit]"
+            return 1
+            ;;
+    esac
+}
+
+# Main command dispatcher
+main() {
+    local command="${1:-help}"
+    
+    case "$command" in
+        "start")
+            start_yesvrouter
+            ;;
+        "stop")
+            stop_yesvrouter
+            ;;
+        "restart")
+            stop_yesvrouter
+            sleep 1
+            start_yesvrouter
+            ;;
+        "status")
+            show_status
+            ;;
+        "interactive"|"cli")
+            interactive_cli
+            ;;
+        "exec")
+            if [[ -z "${2:-}" ]]; then
+                log_error "No command specified for exec"
+                echo "Usage: yesvcli exec '<command>'"
+                return 1
+            fi
+            execute_cli_command "$2"
+            ;;
+        "config")
+            config_management "${2:-show}"
+            ;;
+        "logs")
+            view_logs
+            ;;
+        "build")
+            build_yesvrouter
+            ;;
+        "test")
+            log_info "Running YesVRouter tests..."
+            cd "$YESVROUTER_HOME"
+            make -f Makefile.yesvrouter yesvrouter-test
+            ;;
+        "help"|"-h"|"--help")
+            show_help
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            show_help
+            return 1
+            ;;
+    esac
+}
+
+# Entry point
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
