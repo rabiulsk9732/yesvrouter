@@ -165,3 +165,5 @@ compile_commands.json
 
 # log file archives
 /archives
+*.token
+githubkey.txt
