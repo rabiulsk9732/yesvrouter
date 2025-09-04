@@ -44,6 +44,7 @@
 #include <vnet/l2/l2_vtr.h>
 #include <vnet/interface/rx_queue_funcs.h>
 #include <vnet/interface/tx_queue_funcs.h>
+#include <vppinfra/format_ansi.h>
 
 u8 *
 format_vtr (u8 * s, va_list * args)
@@ -439,16 +440,70 @@ format_vnet_sw_interface (u8 * s, va_list * args)
   vnet_interface_main_t *im = &vnm->interface_main;
 
   if (!si)
-    return format (s, "%=32s%=5s%=10s%=21s%=16s%=16s",
-		   "Name", "Idx", "State", "MTU (L3/IP4/IP6/MPLS)", "Counter",
-		   "Count");
+    {
+      /* Simple professional header without complex ANSI formatting */
+      s = format (s, "\n");
+      s = format (s, "================================================================================\n");
+      s = format (s, "                      YesVRouter Interface Status Summary\n");
+      s = format (s, "================================================================================\n");
+      s = format (s, "%-25s %-4s %-12s %-8s %-20s %-15s %-10s\n",
+                  "Interface Name", "Idx", "Admin/Oper", "Type", "MTU (L3/IP4/IP6/MPLS", "MAC Address", "Speed");
+      s = format (s, "---------------------------------------------------------------------------------\n");
+      return s;
+    }
 
-  s = format (s, "%-32U%=5d%=10U%=21U",
-	      format_vnet_sw_interface_name, vnm, si, si->sw_if_index,
-	      format_vnet_sw_interface_flags, si->flags,
-	      format_vnet_sw_interface_mtu, si);
+  /* Get interface info safely with proper error checking */
+  vnet_hw_interface_t *hi = NULL;
+  vnet_device_class_t *dev_class = NULL;
+  char *dev_class_name = "unknown";
+  
+  /* Only access hardware interface for hardware-backed interfaces */
+  if (si->type == VNET_SW_INTERFACE_TYPE_HARDWARE)
+    {
+      hi = vnet_get_hw_interface_or_null (vnm, si->hw_if_index);
+      if (hi && hi->dev_class_index != ~0)
+        {
+          dev_class = vnet_get_device_class (vnm, hi->dev_class_index);
+          if (dev_class && dev_class->name)
+            dev_class_name = (char *) dev_class->name;
+        }
+    }
+  
+  /* Format admin/operational state safely */
+  u8 admin_state = (si->flags & VNET_SW_INTERFACE_FLAG_ADMIN_UP) ? 1 : 0;
+  u8 link_state = vnet_sw_interface_is_link_up (vnm, si->sw_if_index) ? 1 : 0;
+  
+  char *state_text;
+  if (admin_state && link_state)
+    state_text = "UP/UP";
+  else if (admin_state && !link_state)
+    state_text = "UP/DOWN";
+  else
+    state_text = "DOWN/DOWN";
+  
+  /* Simple formatting with safety checks */
+  s = format (s, "%-25U %3d %-12s %-8s %-20U",
+              format_vnet_sw_interface_name, vnm, si,
+              si->sw_if_index,
+              state_text,
+              dev_class_name,
+              format_vnet_sw_interface_mtu, si);
+  
+  /* Add MAC address only for hardware interfaces with valid address */
+  if (hi && hi->hw_address)
+    s = format (s, " %U", format_ethernet_address, hi->hw_address);
+  else
+    s = format (s, " %15s", "N/A");
+  
+  /* Add link speed only for hardware interfaces */
+  if (hi)
+    s = format (s, " %-10U", format_vnet_hw_interface_link_speed, hi->link_speed);
+  else
+    s = format (s, " %-10s", "N/A");
 
-  s = format_vnet_sw_interface_cntrs (s, im, si, 0 /* want json */ );
+  /* Add counter information safely - only if interface is valid */
+  if (si->sw_if_index != ~0)
+    s = format_vnet_sw_interface_cntrs (s, im, si, 0 /* want json */ );
 
   return s;
 }
