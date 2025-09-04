@@ -87,9 +87,9 @@ vpe_main_init (vlib_main_t * vm)
 #endif
 
   if (CLIB_DEBUG > 0)
-    vlib_unix_cli_set_prompt ("DBGvpp# ");
+    vlib_unix_cli_set_prompt ("DBGyesvrouter# ");
   else
-    vlib_unix_cli_set_prompt ("vpp# ");
+    vlib_unix_cli_set_prompt ("yesvrouter# ");
 
   /* Turn off network stack components which we don't want */
   vlib_mark_init_function_complete (vm, srp_init);

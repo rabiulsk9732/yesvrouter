@@ -115,19 +115,27 @@ typedef struct
 #define _(a) { .line = (u8 *)(a), .length = sizeof(a) - 1 }
 /** Plain welcome banner. */
 static unix_cli_banner_t unix_cli_banner[] = {
-  _("    _______    _        _   _____  ___ \n"),
-  _(" __/ __/ _ \\  (_)__    | | / / _ \\/ _ \\\n"),
-  _(" _/ _// // / / / _ \\   | |/ / ___/ ___/\n"),
-  _(" /_/ /____(_)_/\\___/   |___/_/  /_/    \n"),
+  _("    _     _            __     _____             _              
+"),
+  _("   | |   | |           \\ \   / /___  __   ___ | |_ ___ _ __   
+"),
+  _("   | |___| | ___  ___   \\ \_/ // _ \ \\ \ / / || __/ _ \ '__|  
+"),
+  _("   |_____|_|/___\/___|   \___/ \___/  \_V_/  |_|\___/\_|     
+"),
+  _("\n"),
+  _("   YesVRouter - Advanced Virtual BNG & Router Platform        \n"),
   _("\n")
 };
 
 /** ANSI color welcome banner. */
 static unix_cli_banner_t unix_cli_banner_color[] = {
-  _(ANSI_BRED "    _______    _     " ANSI_RESET "   _   _____  ___ \n"),
-  _(ANSI_BRED " __/ __/ _ \\  (_)__ " ANSI_RESET "   | | / / _ \\/ _ \\\n"),
-  _(ANSI_BRED " _/ _// // / / / _ \\" ANSI_RESET "   | |/ / ___/ ___/\n"),
-  _(ANSI_BRED " /_/ /____(_)_/\\___/" ANSI_RESET "   |___/_/  /_/    \n"),
+  _(ANSI_BRED "    _     _            " ANSI_RESET "__     _____             _              \n"),
+  _(ANSI_BRED "   | |   | |           " ANSI_RESET "\\ \\   / /___  __   ___ | |_ ___ _ __   \n"),
+  _(ANSI_BRED "   | |___| | ___  ___  " ANSI_RESET " \\ \\_/ // _ \\ \\\\ \\ / / || __/ _ \\ '__|  \n"),
+  _(ANSI_BRED "   |_____|_|/___\\/___| " ANSI_RESET "  \\___/ \\___/  \\_V_/  |_|\\___/\\_|     \n"),
+  _("\n"),
+  _(ANSI_BGRN "   YesVRouter - Advanced Virtual BNG & Router Platform        " ANSI_RESET "\n"),
   _("\n")
 };
 
@@ -3228,7 +3236,7 @@ unix_cli_config (vlib_main_t * vm, unformat_input_t * input)
 
   /* Set CLI prompt. */
   if (!cm->cli_prompt)
-    cm->cli_prompt = format (0, "VLIB: ");
+    cm->cli_prompt = format (0, "YesVRouter: ");
 
   return 0;
 }

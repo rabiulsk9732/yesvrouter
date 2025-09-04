@@ -29,7 +29,7 @@
 
 /** The image version string */
 char *vpe_version_string =
-  "vpp v" VPP_BUILD_VER
+  "YesVRouter v" VPP_BUILD_VER
   " built by " VPP_BUILD_USER " on " VPP_BUILD_HOST " at " VPP_BUILD_DATE;
 
 /** The name of the compiler */
@@ -108,7 +108,7 @@ show_vpe_version_command_fn (vlib_main_t * vm,
  * @cliexpar
  * How to display the image version string:
  * @cliexstart{show version}
- * vpp v18.07-rc0~509-gb9124828 built by vppuser on vppbuild at date
+ * YesVRouter v18.07-rc0~509-gb9124828 built by vppuser on vppbuild at date
  * @cliexend
  *
  * @cliexpar
@@ -124,9 +124,9 @@ show_vpe_version_command_fn (vlib_main_t * vm,
  * @cliexend
  *
  * @cliexpar
- * How to display the vpp command line arguments:
+ * How to display the YesVRouter command line arguments:
  * @cliexstart{show version cmdline}
- * vpp# show version cmdline
+ * yesvrouter# show version cmdline
  * Command line arguments:
  *   /scratch/vpp-showversion/build-root/install-vpp_debug-native/vpp/bin/vpp
  *   unix
