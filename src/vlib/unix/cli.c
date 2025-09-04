@@ -83,6 +83,8 @@
 #define ANSI_DRED       ANSI_DIM CSI "31m"
 /** ANSI Start bright red text. */
 #define ANSI_BRED       ANSI_BOLD CSI "31m"
+/** ANSI Start bright green text. */
+#define ANSI_BGRN       ANSI_BOLD CSI "32m"
 /** ANSI clear line cursor is on. */
 #define ANSI_CLEARLINE  CSI "2K"
 /** ANSI scroll screen down one line. */
@@ -115,14 +117,10 @@ typedef struct
 #define _(a) { .line = (u8 *)(a), .length = sizeof(a) - 1 }
 /** Plain welcome banner. */
 static unix_cli_banner_t unix_cli_banner[] = {
-  _("    _     _            __     _____             _              
-"),
-  _("   | |   | |           \\ \   / /___  __   ___ | |_ ___ _ __   
-"),
-  _("   | |___| | ___  ___   \\ \_/ // _ \ \\ \ / / || __/ _ \ '__|  
-"),
-  _("   |_____|_|/___\/___|   \___/ \___/  \_V_/  |_|\___/\_|     
-"),
+  _("    _     _            __     _____             _              \n"),
+  _("   | |   | |           \\ \\   / /___  __   ___ | |_ ___ _ __   \n"),
+  _("   | |___| | ___  ___   \\ \\_/ // _ \\ \\ \\ / / || __/ _ \\ '__|  \n"),
+  _("   |_____|_|/___\\/___/   \\___/ \\___/  \\_V_/  |_|\\___/\\_|     \n"),
   _("\n"),
   _("   YesVRouter - Advanced Virtual BNG & Router Platform        \n"),
   _("\n")
@@ -132,10 +130,10 @@ static unix_cli_banner_t unix_cli_banner[] = {
 static unix_cli_banner_t unix_cli_banner_color[] = {
   _(ANSI_BRED "    _     _            " ANSI_RESET "__     _____             _              \n"),
   _(ANSI_BRED "   | |   | |           " ANSI_RESET "\\ \\   / /___  __   ___ | |_ ___ _ __   \n"),
-  _(ANSI_BRED "   | |___| | ___  ___  " ANSI_RESET " \\ \\_/ // _ \\ \\\\ \\ / / || __/ _ \\ '__|  \n"),
+  _(ANSI_BRED "   | |___| | ___  ___  " ANSI_RESET " \\ \\_/ // _ \\ \\ \\ / / || __/ _ \\ '__|  \n"),
   _(ANSI_BRED "   |_____|_|/___\\/___| " ANSI_RESET "  \\___/ \\___/  \\_V_/  |_|\\___/\\_|     \n"),
   _("\n"),
-  _(ANSI_BGRN "   YesVRouter - Advanced Virtual BNG & Router Platform        " ANSI_RESET "\n"),
+  _(ANSI_BRED "   YesVRouter - Advanced Virtual BNG & Router Platform        " ANSI_RESET "\n"),
   _("\n")
 };
 
