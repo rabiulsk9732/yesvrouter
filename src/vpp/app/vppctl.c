@@ -38,7 +38,7 @@
 #include <vpp/vnet/config.h>
 #endif
 
-#define SOCKET_FILE "/run/vpp/cli.sock"
+#define SOCKET_FILE "/run/yesvrouter/cli.sock"
 
 volatile int window_resized = 0;
 struct termios orig_tio;
@@ -53,9 +53,9 @@ send_ttype (int sock_fd, int is_interactive)
    * for inter-invocation leakage */
   memset (buf, 0, sizeof (buf));
 
-  term = is_interactive ? getenv ("TERM") : "vppctl";
+  term = is_interactive ? getenv ("TERM") : "yesvctl";
   if (term == NULL)
-    term = "dumb";
+    term = "yesvrouter";
 
   int len = snprintf (buf, sizeof (buf),
 		      "%c%c%c"
