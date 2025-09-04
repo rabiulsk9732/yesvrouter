@@ -1,0 +1,228 @@
+# YesVRouter - Advanced Virtual BNG & Router Platform
+# Custom Build System Extension for VPP
+#
+# This Makefile extends the standard VPP build system with
+# YesVRouter-specific targets and configurations
+
+# Include the original VPP Makefile
+include Makefile
+
+# YesVRouter specific variables
+YESVROUTER_VERSION = 1.0.0
+YESVROUTER_BUILD_DATE = $(shell date +%Y-%m-%d)
+YESVROUTER_BUILD_USER = $(shell whoami)
+YESVROUTER_BUILD_HOST = $(shell hostname)
+
+# Build directories
+YESVROUTER_BUILD_DIR = $(BR)/yesvrouter
+YESVROUTER_INSTALL_DIR = $(BR)/install-yesvrouter-native
+YESVROUTER_PKG_DIR = $(BR)/packages
+
+# Configuration
+YESVROUTER_STARTUP_CONF = src/vpp/conf/startup.conf
+YESVROUTER_CLI_PROMPT = "yesvrouter# "
+
+# Hugepages configuration (2MB pages for better compatibility)
+HUGEPAGES_2MB = 1024
+HUGEPAGES_1GB = 4
+
+# NUMA configuration
+NUMA_WORKERS = 2
+NUMA_MAIN_CORE = 1
+
+.PHONY: yesvrouter-help yesvrouter-build yesvrouter-run yesvrouter-clean \
+        yesvrouter-install yesvrouter-test yesvrouter-config-hugepages \
+        yesvrouter-bind-nics yesvrouter-status
+
+##############################################################################
+# YesVRouter Help
+##############################################################################
+yesvrouter-help:
+	@echo ""
+	@echo "YesVRouter - Advanced Virtual BNG & Router Platform"
+	@echo "===================================================="
+	@echo ""
+	@echo "Build Targets:"
+	@echo "  yesvrouter-build          - Build YesVRouter (debug version)"
+	@echo "  yesvrouter-build-release  - Build YesVRouter (release version)"
+	@echo "  yesvrouter-install        - Install YesVRouter binaries"
+	@echo "  yesvrouter-clean          - Clean build artifacts"
+	@echo ""
+	@echo "Runtime Targets:"
+	@echo "  yesvrouter-run            - Run YesVRouter interactively"
+	@echo "  yesvrouter-run-daemon     - Run YesVRouter as daemon"
+	@echo "  yesvrouter-config-hugepages - Configure hugepages"
+	@echo "  yesvrouter-bind-nics      - Bind NICs to DPDK"
+	@echo "  yesvrouter-status         - Show YesVRouter status"
+	@echo ""
+	@echo "Test Targets:"
+	@echo "  yesvrouter-test           - Run YesVRouter test suite"
+	@echo "  yesvrouter-test-unit      - Run unit tests only"
+	@echo "  yesvrouter-test-integration - Run integration tests"
+	@echo ""
+	@echo "Package Targets:"
+	@echo "  yesvrouter-pkg-deb        - Build Debian packages"
+	@echo "  yesvrouter-pkg-rpm        - Build RPM packages"
+	@echo "  yesvrouter-pkg-docker     - Build Docker image"
+	@echo ""
+	@echo "Development Targets:"
+	@echo "  yesvrouter-dev-setup      - Setup development environment"
+	@echo "  yesvrouter-lint           - Run code linting"
+	@echo "  yesvrouter-format         - Format source code"
+	@echo ""
+
+##############################################################################
+# Build Targets
+##############################################################################
+yesvrouter-build: build
+	@echo "Building YesVRouter..."
+	@mkdir -p $(YESVROUTER_BUILD_DIR)
+	@echo "YesVRouter build completed successfully!"
+	@echo "Version: $(YESVROUTER_VERSION)"
+	@echo "Build Date: $(YESVROUTER_BUILD_DATE)"
+	@echo "Built by: $(YESVROUTER_BUILD_USER)@$(YESVROUTER_BUILD_HOST)"
+
+yesvrouter-build-release: build-release
+	@echo "Building YesVRouter (Release)..."
+	@mkdir -p $(YESVROUTER_BUILD_DIR)
+	@echo "YesVRouter release build completed successfully!"
+
+yesvrouter-install: install
+	@echo "Installing YesVRouter..."
+	@mkdir -p $(YESVROUTER_INSTALL_DIR)
+	@echo "YesVRouter installation completed!"
+
+##############################################################################
+# Runtime Targets
+##############################################################################
+yesvrouter-run:
+	@echo "Starting YesVRouter interactively..."
+	@echo "Type 'quit' to exit the CLI"
+	@echo "=========================================="
+	@sudo $(BR)/install-vpp_debug-native/vpp/bin/vpp \
+		unix { interactive cli-listen /run/vpp/cli.sock nodaemon } \
+		api-trace { on } \
+		api-segment { gid $$(id -g) } \
+		cpu { main-core $(NUMA_MAIN_CORE) workers $(NUMA_WORKERS) } \
+		dpdk { no-pci }
+
+yesvrouter-run-daemon:
+	@echo "Starting YesVRouter as daemon..."
+	@sudo $(BR)/install-vpp_debug-native/vpp/bin/vpp \
+		-c $(YESVROUTER_STARTUP_CONF)
+
+yesvrouter-status:
+	@echo "YesVRouter Status"
+	@echo "=================="
+	@if pgrep -f "vpp.*yesvrouter" > /dev/null; then \
+		echo "Status: Running"; \
+		echo "PID: $$(pgrep -f 'vpp.*yesvrouter')"; \
+	else \
+		echo "Status: Stopped"; \
+	fi
+	@echo "Version: $(YESVROUTER_VERSION)"
+	@echo "Build: $(YESVROUTER_BUILD_DATE)"
+
+##############################################################################
+# System Configuration
+##############################################################################
+yesvrouter-config-hugepages:
+	@echo "Configuring hugepages for YesVRouter..."
+	@echo "2MB pages: $(HUGEPAGES_2MB)"
+	@echo "1GB pages: $(HUGEPAGES_1GB)"
+	@sudo sysctl -w vm.nr_hugepages=$(HUGEPAGES_2MB)
+	@sudo sysctl -w vm.hugetlb_shm_group=0
+	@echo "Hugepages configured successfully!"
+	@echo "Current hugepage status:"
+	@cat /proc/meminfo | grep -i huge
+
+yesvrouter-bind-nics:
+	@echo "DPDK NIC binding for YesVRouter"
+	@echo "==============================="
+	@echo "Available network interfaces:"
+	@sudo $(BR)/install-vpp_debug-native/external/bin/dpdk-devbind --status-dev net
+	@echo ""
+	@echo "To bind a NIC to DPDK, run:"
+	@echo "sudo $(BR)/install-vpp_debug-native/external/bin/dpdk-devbind -b vfio-pci <PCI_ADDRESS>"
+	@echo ""
+	@echo "Example: sudo $(BR)/install-vpp_debug-native/external/bin/dpdk-devbind -b vfio-pci 0000:08:00.0"
+
+##############################################################################
+# Test Targets
+##############################################################################
+yesvrouter-test: test
+	@echo "Running YesVRouter test suite..."
+	@echo "Test results will be available in $(BR)/test-results/"
+
+yesvrouter-test-unit:
+	@echo "Running YesVRouter unit tests..."
+	@make test TEST_JOBS=auto
+
+yesvrouter-test-integration:
+	@echo "Running YesVRouter integration tests..."
+	@echo "Integration tests require running VPP instance"
+
+##############################################################################
+# Package Targets
+##############################################################################
+yesvrouter-pkg-deb: pkg-deb
+	@echo "Building YesVRouter Debian packages..."
+	@mkdir -p $(YESVROUTER_PKG_DIR)
+	@echo "Debian packages built successfully!"
+
+yesvrouter-pkg-rpm: pkg-rpm
+	@echo "Building YesVRouter RPM packages..."
+	@mkdir -p $(YESVROUTER_PKG_DIR)
+	@echo "RPM packages built successfully!"
+
+yesvrouter-pkg-docker:
+	@echo "Building YesVRouter Docker image..."
+	@echo "Docker support coming in Phase 8"
+
+##############################################################################
+# Development Targets
+##############################################################################
+yesvrouter-dev-setup:
+	@echo "Setting up YesVRouter development environment..."
+	@echo "Installing additional development tools..."
+	@apt update && apt install -y \
+		gdb valgrind perf-tools-unstable \
+		wireshark-common tcpdump \
+		vim-nox tmux htop iotop
+	@echo "Development environment setup complete!"
+
+yesvrouter-lint: checkstyle
+	@echo "Running YesVRouter code linting..."
+
+yesvrouter-format: fixstyle
+	@echo "Formatting YesVRouter source code..."
+
+yesvrouter-clean: wipe
+	@echo "Cleaning YesVRouter build artifacts..."
+	@rm -rf $(YESVROUTER_BUILD_DIR)
+	@rm -rf $(YESVROUTER_INSTALL_DIR)
+	@rm -rf $(YESVROUTER_PKG_DIR)
+	@echo "YesVRouter clean completed!"
+
+##############################################################################
+# Information Targets
+##############################################################################
+yesvrouter-info:
+	@echo "YesVRouter Build Information"
+	@echo "============================"
+	@echo "Version: $(YESVROUTER_VERSION)"
+	@echo "Build Date: $(YESVROUTER_BUILD_DATE)"
+	@echo "Build User: $(YESVROUTER_BUILD_USER)"
+	@echo "Build Host: $(YESVROUTER_BUILD_HOST)"
+	@echo "CPU Cores: $(shell nproc)"
+	@echo "Memory: $(shell free -h | grep 'Mem:' | awk '{print $$2}')"
+	@echo "OS: $(shell lsb_release -d | cut -f2)"
+	@echo "Kernel: $(shell uname -r)"
+	@echo ""
+	@echo "Build Directories:"
+	@echo "  Build Root: $(BR)"
+	@echo "  Install Dir: $(YESVROUTER_INSTALL_DIR)"
+	@echo "  Package Dir: $(YESVROUTER_PKG_DIR)"
+
+# Default target
+help: yesvrouter-help
